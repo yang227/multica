@@ -17,12 +17,14 @@ import { api } from "@multica/core/api";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { skillListOptions, workspaceKeys } from "@multica/core/workspace/queries";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAppI18n } from "../../../i18n";
 
 export function SkillsTab({
   agent,
 }: {
   agent: Agent;
 }) {
+  const { t } = useAppI18n();
   const qc = useQueryClient();
   const wsId = useWorkspaceId();
   const { data: workspaceSkills = [] } = useQuery(skillListOptions(wsId));
@@ -39,7 +41,7 @@ export function SkillsTab({
       await api.setAgentSkills(agent.id, { skill_ids: newIds });
       qc.invalidateQueries({ queryKey: workspaceKeys.agents(wsId) });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to add skill");
+      toast.error(e instanceof Error ? e.message : t.agents.addSkillFailed);
     } finally {
       setSaving(false);
       setShowPicker(false);
@@ -53,7 +55,7 @@ export function SkillsTab({
       await api.setAgentSkills(agent.id, { skill_ids: newIds });
       qc.invalidateQueries({ queryKey: workspaceKeys.agents(wsId) });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to remove skill");
+      toast.error(e instanceof Error ? e.message : t.agents.removeSkillFailed);
     } finally {
       setSaving(false);
     }
@@ -63,10 +65,8 @@ export function SkillsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold">Skills</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Workspace skills assigned to this agent.
-          </p>
+          <h3 className="text-sm font-semibold">{t.agents.skillsHeading}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t.agents.skillsDescription}</p>
         </div>
         <Button
           variant="outline"
@@ -75,53 +75,37 @@ export function SkillsTab({
           disabled={saving || availableSkills.length === 0}
         >
           <Plus className="h-3 w-3" />
-          Add Skill
+          {t.agents.addSkill}
         </Button>
       </div>
 
       <div className="flex items-start gap-2 rounded-md border border-info/20 bg-info/5 px-3 py-2.5">
-        <Info className="h-3.5 w-3.5 shrink-0 text-info mt-0.5" />
-        <p className="text-xs text-muted-foreground">
-          Local runtime skills (from your CLI&apos;s skills directory) are always available automatically — no need to add them here.
-        </p>
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info" />
+        <p className="text-xs text-muted-foreground">{t.agents.localSkillsHint}</p>
       </div>
 
       {agent.skills.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <FileText className="h-8 w-8 text-muted-foreground/40" />
-          <p className="mt-3 text-sm text-muted-foreground">No skills assigned</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Add workspace skills to share team knowledge with this agent. Local skills are already used automatically.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">{t.agents.noSkillsAssigned}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t.agents.noSkillsDescription}</p>
           {availableSkills.length > 0 && (
-            <Button
-              onClick={() => setShowPicker(true)}
-              size="xs"
-              className="mt-3"
-              disabled={saving}
-            >
+            <Button onClick={() => setShowPicker(true)} size="xs" className="mt-3" disabled={saving}>
               <Plus className="h-3 w-3" />
-              Add Skill
+              {t.agents.addSkill}
             </Button>
           )}
         </div>
       ) : (
         <div className="space-y-2">
           {agent.skills.map((skill) => (
-            <div
-              key={skill.id}
-              className="flex items-center gap-3 rounded-lg border px-4 py-3"
-            >
+            <div key={skill.id} className="flex items-center gap-3 rounded-lg border px-4 py-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{skill.name}</div>
-                {skill.description && (
-                  <div className="text-xs text-muted-foreground truncate">
-                    {skill.description}
-                  </div>
-                )}
+                {skill.description && <div className="truncate text-xs text-muted-foreground">{skill.description}</div>}
               </div>
               <Button
                 variant="ghost"
@@ -137,17 +121,14 @@ export function SkillsTab({
         </div>
       )}
 
-      {/* Skill Picker Dialog */}
       {showPicker && (
         <Dialog open onOpenChange={(v) => { if (!v) setShowPicker(false); }}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-sm">Add Skill</DialogTitle>
-              <DialogDescription className="text-xs">
-                Select a skill to assign to this agent.
-              </DialogDescription>
+              <DialogTitle className="text-sm">{t.agents.addSkillTitle}</DialogTitle>
+              <DialogDescription className="text-xs">{t.agents.addSkillDescription}</DialogDescription>
             </DialogHeader>
-            <div className="max-h-64 overflow-y-auto space-y-1">
+            <div className="max-h-64 space-y-1 overflow-y-auto">
               {availableSkills.map((skill) => (
                 <button
                   key={skill.id}
@@ -158,23 +139,17 @@ export function SkillsTab({
                   <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">{skill.name}</div>
-                    {skill.description && (
-                      <div className="text-xs text-muted-foreground truncate">
-                        {skill.description}
-                      </div>
-                    )}
+                    {skill.description && <div className="truncate text-xs text-muted-foreground">{skill.description}</div>}
                   </div>
                 </button>
               ))}
               {availableSkills.length === 0 && (
-                <p className="py-6 text-center text-xs text-muted-foreground">
-                  All workspace skills are already assigned.
-                </p>
+                <p className="py-6 text-center text-xs text-muted-foreground">{t.agents.allWorkspaceSkillsAssigned}</p>
               )}
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setShowPicker(false)}>
-                Cancel
+                {t.common.cancel}
               </Button>
             </DialogFooter>
           </DialogContent>

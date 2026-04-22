@@ -5,11 +5,24 @@ import { ActorAvatar } from "../../common/actor-avatar";
 import { Archive } from "lucide-react";
 import type { InboxItem } from "@multica/core/types";
 import { InboxDetailLabel } from "./inbox-detail-label";
+import { useAppI18n } from "../../i18n";
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
+function useTimeAgoLabel(dateStr: string) {
+  const { t } = useAppI18n();
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return t.inbox.justNow;
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
@@ -30,6 +43,8 @@ export function InboxListItem({
   onClick: () => void;
   onArchive: () => void;
 }) {
+  const { t } = useAppI18n();
+  const timeLabel = useTimeAgoLabel(item.created_at);
   return (
     <button
       onClick={onClick}
@@ -58,7 +73,7 @@ export function InboxListItem({
             <span
               role="button"
               tabIndex={-1}
-              title="Archive"
+              title={t.inbox.archiveAction}
               onClick={(e) => {
                 e.stopPropagation();
                 onArchive();
@@ -82,8 +97,8 @@ export function InboxListItem({
           <p className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs ${item.read ? "text-muted-foreground/60" : "text-muted-foreground"}`}>
             <InboxDetailLabel item={item} />
           </p>
-          <span className={`shrink-0 text-xs ${item.read ? "text-muted-foreground/60" : "text-muted-foreground"}`}>
-            {timeAgo(item.created_at)}
+            <span className={`shrink-0 text-xs ${item.read ? "text-muted-foreground/60" : "text-muted-foreground"}`}>
+            {timeLabel}
           </span>
         </div>
       </div>

@@ -1,18 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Loader2,
-  Save,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Loader2, Save, Plus, Trash2 } from "lucide-react";
 import type { Agent, RuntimeDevice } from "@multica/core/types";
 import { createSafeId } from "@multica/core/utils";
 import { Button } from "@multica/ui/components/ui/button";
 import { Input } from "@multica/ui/components/ui/input";
 import { Label } from "@multica/ui/components/ui/label";
 import { toast } from "sonner";
+import { useAppI18n } from "../../../i18n";
 
 interface ArgEntry {
   id: string;
@@ -36,9 +32,8 @@ export function CustomArgsTab({
   runtimeDevice?: RuntimeDevice;
   onSave: (updates: Partial<Agent>) => Promise<void>;
 }) {
-  const [entries, setEntries] = useState<ArgEntry[]>(
-    argsToEntries(agent.custom_args ?? []),
-  );
+  const { t } = useAppI18n();
+  const [entries, setEntries] = useState<ArgEntry[]>(argsToEntries(agent.custom_args ?? []));
   const [saving, setSaving] = useState(false);
 
   const currentArgs = entriesToArgs(entries);
@@ -54,18 +49,16 @@ export function CustomArgsTab({
   };
 
   const updateEntry = (index: number, value: string) => {
-    setEntries(
-      entries.map((entry, i) => (i === index ? { ...entry, value } : entry)),
-    );
+    setEntries(entries.map((entry, i) => (i === index ? { ...entry, value } : entry)));
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await onSave({ custom_args: currentArgs });
-      toast.success("Custom arguments saved");
+      toast.success(t.agents.customArgsSaved);
     } catch {
-      toast.error("Failed to save custom arguments");
+      toast.error(t.agents.customArgsSaveFailed);
     } finally {
       setSaving(false);
     }
@@ -77,31 +70,20 @@ export function CustomArgsTab({
     <div className="max-w-lg space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <Label className="text-xs text-muted-foreground">
-            Custom Arguments
-          </Label>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Additional CLI arguments appended to the agent command at launch.
-            Supported flags depend on the agent's CLI.
-          </p>
+          <Label className="text-xs text-muted-foreground">{t.agents.customArgsLabel}</Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t.agents.customArgsDescription}</p>
           {launchHeader && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Launch mode:{" "}
+              {t.agents.launchMode}:{" "}
               <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
                 {launchHeader} &lt;your args&gt;
               </code>
             </p>
           )}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addEntry}
-          className="h-7 gap-1 text-xs"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={addEntry} className="h-7 gap-1 text-xs">
           <Plus className="h-3 w-3" />
-          Add
+          {t.agents.addVariable}
         </Button>
       </div>
       {entries.length > 0 && (
@@ -127,12 +109,8 @@ export function CustomArgsTab({
       )}
 
       <Button onClick={handleSave} disabled={!dirty || saving} size="sm">
-        {saving ? (
-          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-        ) : (
-          <Save className="h-3.5 w-3.5 mr-1.5" />
-        )}
-        Save
+        {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+        {t.common.save}
       </Button>
     </div>
   );

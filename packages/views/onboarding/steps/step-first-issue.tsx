@@ -5,31 +5,14 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@multica/ui/components/ui/button";
 import { completeOnboarding } from "@multica/core/onboarding";
+import { useAppI18n } from "../../i18n";
 
-/**
- * Step 5 — the final onboarding beat.
- *
- * All this step does now is flip `onboarded_at` on the server. The former
- * in-flight bootstrap (welcome issue + Getting Started project + sub-issues)
- * moved out of onboarding entirely: it's a post-landing opt-in dialog
- * (`StarterContentPrompt`) that runs inside the workspace after navigation.
- * Two consequences of that move:
- *
- *   1. This step can't fail in user-visible ways any more. `completeOnboarding`
- *      is one PATCH to `/api/me`; the only failure mode is a network error,
- *      which we surface as a toast + Retry, not a full error screen.
- *   2. The sub-issue "Unknown" assignee race is gone for free — by the time
- *      the import runs, the user has already landed in the workspace, so
- *      `listMembers` has resolved and the current user's member_id is in
- *      the query cache.
- */
 export function StepFirstIssue({
   onFinished,
 }: {
-  /** Called after `onboarded_at` is set server-side. Parent handles
-   *  navigation to the workspace landing page. */
   onFinished: () => void;
 }) {
+  const { t } = useAppI18n();
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const started = useRef(false);
@@ -45,11 +28,11 @@ export function StepFirstIssue({
         onFinishedRef.current();
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to finish onboarding",
+          err instanceof Error ? err.message : t.onboarding.finishFailed,
         );
       }
     })();
-  }, []);
+  }, [t]);
 
   const retry = async () => {
     if (retrying) return;
@@ -59,8 +42,10 @@ export function StepFirstIssue({
       await completeOnboarding();
       onFinishedRef.current();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Retry failed");
-      toast.error(err instanceof Error ? err.message : "Retry failed");
+      const message =
+        err instanceof Error ? err.message : t.onboarding.retryFailed;
+      setError(message);
+      toast.error(message);
     } finally {
       setRetrying(false);
     }
@@ -74,13 +59,13 @@ export function StepFirstIssue({
         </div>
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Something went wrong
+            {t.onboarding.somethingWentWrong}
           </h1>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
         <Button onClick={retry} disabled={retrying}>
           {retrying && <Loader2 className="h-4 w-4 animate-spin" />}
-          Retry
+          {t.common.continue}
         </Button>
       </div>
     );
@@ -91,10 +76,10 @@ export function StepFirstIssue({
       <Loader2 className="h-10 w-10 animate-spin text-primary" />
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Finishing up
+          {t.onboarding.finishingUp}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Almost there — opening your workspace.
+          {t.onboarding.openingWorkspaceSoon}
         </p>
       </div>
     </div>

@@ -34,33 +34,9 @@ import {
   isWorkspaceSlugConflict,
   nameToWorkspaceSlug,
 } from "../../workspace/slug";
-
-/**
- * Step 2 — create your first workspace, or continue with one set up in
- * an earlier session.
- *
- * Shares Questionnaire's editorial two-column skeleton: 3-region app
- * shell on the left, side panel on the right. One **unified footer CTA**
- * handles both paths — `Open X` when the user picks an existing
- * workspace, `Create X` when they name a new one. The name / slug
- * fields are inlined here (not via the shared `CreateWorkspaceForm`)
- * because the footer-driven interaction needs externalized submit; the
- * shared form's own button would fight the footer CTA.
- *
- * The create-fields block doubles as a pedagogical preview: the URL is
- * rendered as a `multica.ai/[slug]` pill, and a live `Issues will look
- * like ACME-123` line shows the user what their issue IDs will read
- * like before they've created anything.
- *
- * Resume path ships two picker cards (existing + create-new) and the
- * user toggles between them. No-existing path just shows the create
- * fields directly.
- */
+import { useAppI18n } from "../../i18n";
 
 function issuePrefix(slug: string): string {
-  // Mirrors the server's default prefix derivation — first 4 chars of
-  // the slug, uppercased. Falls back to "WS" when the slug is empty so
-  // the preview line never collapses to a single dangling "-".
   const head = slug.trim().replace(/[^a-z0-9]/g, "").slice(0, 4);
   return (head || "ws").toUpperCase();
 }
@@ -74,24 +50,16 @@ export function StepWorkspace({
   onCreated: (workspace: Workspace) => void | Promise<void>;
   onBack?: () => void;
 }) {
+  const { t } = useAppI18n();
   const mainRef = useRef<HTMLElement>(null);
   const fadeStyle = useScrollFade(mainRef);
 
   const reusing = existing ?? null;
-  // Resume path only: user picks which card. `null` = neither yet, so
-  // the footer CTA stays disabled. Clicking either card toggles — a
-  // second click on the same card deselects it. No-existing path
-  // ignores this state entirely.
   const [mode, setMode] = useState<"existing" | "create" | null>(null);
   const pickExisting = () =>
     setMode((m) => (m === "existing" ? null : "existing"));
-  const pickCreate = () =>
-    setMode((m) => (m === "create" ? null : "create"));
+  const pickCreate = () => setMode((m) => (m === "create" ? null : "create"));
 
-  // Form state for the create path. Mirrors CreateWorkspaceForm's
-  // internals: slug auto-fills from name until the user manually edits
-  // it; server-side slug conflicts show inline. Kept at this level so
-  // the footer CTA can read `canCreate` and trigger `handleCreate`.
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugServerError, setSlugServerError] = useState<string | null>(null);
@@ -130,19 +98,15 @@ export function StepWorkspace({
         onError: (error) => {
           if (isWorkspaceSlugConflict(error)) {
             setSlugServerError(WORKSPACE_SLUG_CONFLICT_ERROR);
-            toast.error("Choose a different workspace URL");
+            toast.error(t.workspace.createChooseDifferentUrl);
             return;
           }
-          toast.error("Failed to create workspace");
+          toast.error(t.workspace.createFailed);
         },
       },
     );
   };
 
-  // Compute the footer CTA from whichever path the user is on. `null`
-  // is only reachable in the resume path; `existing` is only valid
-  // when we actually have a `reusing` workspace; everything else
-  // (including the no-existing path) funnels through `create`.
   const isCreating = createWorkspace.isPending;
   const creatingActive = !reusing || mode === "create";
   const existingActive = Boolean(reusing) && mode === "existing";
@@ -153,31 +117,32 @@ export function StepWorkspace({
   let onContinue: () => void;
 
   if (existingActive && reusing) {
-    hint = `Opening ${reusing.name}.`;
-    continueLabel = `Open ${reusing.name}`;
+    hint = t.onboarding.openingWorkspace(reusing.name);
+    continueLabel = t.common.open;
     continueDisabled = isCreating;
     onContinue = () => onCreated(reusing);
   } else if (creatingActive) {
     if (isCreating) {
-      hint = `Creating ${name.trim() || "your workspace"}…`;
-      continueLabel = "Creating…";
+      hint = t.onboarding.creatingWorkspaceHint(
+        name.trim() || t.onboarding.yourWorkspace,
+      );
+      continueLabel = t.workspace.createSubmitting;
       continueDisabled = true;
       onContinue = () => {};
     } else if (canCreate) {
-      hint = `Creating ${name.trim()}.`;
-      continueLabel = `Create ${name.trim()}`;
+      hint = t.onboarding.creatingWorkspaceHint(name.trim());
+      continueLabel = t.onboarding.createWorkspaceAction;
       continueDisabled = false;
       onContinue = handleCreate;
     } else {
-      hint = "Name your workspace to create it.";
-      continueLabel = "Create workspace";
+      hint = t.onboarding.createWorkspaceHint;
+      continueLabel = t.onboarding.createWorkspaceAction;
       continueDisabled = true;
       onContinue = () => {};
     }
   } else {
-    // Resume path, nothing picked yet.
-    hint = "Pick your workspace or start a new one.";
-    continueLabel = "Continue";
+    hint = t.onboarding.pickWorkspaceHint;
+    continueLabel = t.common.continue;
     continueDisabled = true;
     onContinue = () => {};
   }
@@ -189,7 +154,7 @@ export function StepWorkspace({
           htmlFor="ws-name"
           className="text-xs font-medium text-muted-foreground"
         >
-          Workspace name
+          {t.onboarding.workspaceNameLabel}
         </Label>
         <Input
           id="ws-name"
@@ -197,7 +162,7 @@ export function StepWorkspace({
           type="text"
           value={name}
           onChange={(e) => handleNameChange(e.target.value)}
-          placeholder="Acme Inc, My Lab, Side Projects…"
+          placeholder={t.onboarding.workspaceNamePlaceholder}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
         />
       </div>
@@ -206,7 +171,7 @@ export function StepWorkspace({
           htmlFor="ws-slug"
           className="text-xs font-medium text-muted-foreground"
         >
-          URL
+          {t.onboarding.workspaceUrlLabel}
         </Label>
         <div className="flex items-center rounded-md border bg-muted transition-colors focus-within:border-foreground">
           <span className="select-none pl-3 font-mono text-sm text-muted-foreground">
@@ -226,14 +191,10 @@ export function StepWorkspace({
       </div>
       <div className="flex flex-col gap-1.5">
         <div className="text-xs font-medium text-muted-foreground">
-          Issue prefix
+          {t.onboarding.issuePrefixLabel}
         </div>
         <div className="text-sm leading-[1.55] text-muted-foreground">
-          Issues will look like{" "}
-          <span className="font-mono text-foreground">
-            {issuePrefix(slug)}-123
-          </span>
-          . You can change this later in settings.
+          {t.onboarding.issuePrefixBody(issuePrefix(slug))}
         </div>
       </div>
     </div>
@@ -241,7 +202,6 @@ export function StepWorkspace({
 
   return (
     <div className="animate-onboarding-enter grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px]">
-      {/* Left column — DragStrip + 3-region app shell */}
       <div className="flex min-h-0 flex-col">
         <DragStrip />
         <header className="flex shrink-0 items-center gap-4 bg-background px-6 py-3 sm:px-10 md:px-14 lg:px-16">
@@ -253,7 +213,7 @@ export function StepWorkspace({
               className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back
+              {t.common.back}
             </button>
           ) : (
             <span aria-hidden className="w-0" />
@@ -270,17 +230,17 @@ export function StepWorkspace({
         >
           <div className="mx-auto w-full max-w-[620px] px-6 py-10 sm:px-10 md:px-14 lg:px-0 lg:py-14">
             <div className="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-              {reusing ? "Pick up or start fresh" : "Your first workspace"}
+              {reusing ? t.onboarding.workspaceIntroExisting : t.onboarding.workspaceIntroNew}
             </div>
             <h1 className="text-balance font-serif text-[36px] font-medium leading-[1.1] tracking-tight text-foreground">
               {reusing
-                ? `Continue with ${reusing.name}, or start another.`
-                : "Name your workspace."}
+                ? t.onboarding.workspaceTitleExisting(reusing.name)
+                : t.onboarding.workspaceTitleNew}
             </h1>
             <p className="mt-4 text-[15.5px] leading-[1.55] text-foreground/80">
               {reusing
-                ? "Resume setup with the workspace you already have, or create a new one alongside it — you can belong to any number of workspaces."
-                : "A workspace is where your issues, agents, and projects live. You can invite teammates or spin up more workspaces later."}
+                ? t.onboarding.workspaceBodyExisting
+                : t.onboarding.workspaceBodyNew}
             </p>
 
             <div className="mt-10">
@@ -316,12 +276,6 @@ export function StepWorkspace({
         </footer>
       </div>
 
-      {/* Right — side panel.
-          Swap sides based on what the user is currently picking:
-          switching to "create" in the resume path swaps the preview
-          from "your existing workspace + what's next" to the generic
-          "what lives inside / things you'll do here" so the preview
-          stays honest to the user's current choice. */}
       <aside className="hidden min-h-0 border-l bg-muted/40 lg:flex lg:flex-col">
         <DragStrip />
         <div className="min-h-0 flex-1 overflow-y-auto px-12 py-12">
@@ -372,13 +326,6 @@ function ExistingWorkspaceCard({
   );
 }
 
-/**
- * Collapsible "Create a new workspace" radio card — shown in the resume
- * path alongside the existing-workspace card. Clicking the header
- * toggles selection; selected state expands to reveal the name / slug
- * fields (passed in as children by the caller). Submission is driven
- * by the parent's footer CTA, not a button inside this card.
- */
 function CreateNewWorkspaceCard({
   selected,
   onSelect,
@@ -388,6 +335,8 @@ function CreateNewWorkspaceCard({
   onSelect: () => void;
   children: ReactNode;
 }) {
+  const { t } = useAppI18n();
+
   return (
     <div
       className={cn(
@@ -413,10 +362,10 @@ function CreateNewWorkspaceCard({
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="truncate text-[14.5px] font-medium text-foreground">
-            Create a new workspace
+            {t.onboarding.createNewWorkspace}
           </div>
           <div className="truncate text-xs text-muted-foreground">
-            Start fresh — a separate space for a different side of your work.
+            {t.onboarding.createNewWorkspaceBody}
           </div>
         </div>
         <RadioMark selected={selected} />
@@ -427,58 +376,52 @@ function CreateNewWorkspaceCard({
 }
 
 function CreateWorkspaceSide() {
+  const { t } = useAppI18n();
+
   return (
     <div className="flex flex-col gap-6">
       <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        What lives inside a workspace
+        {t.onboarding.whatLivesInside}
       </div>
 
-      <WorkspacePreviewCard name="Your workspace" slug="workspace" />
+      <WorkspacePreviewCard name={t.onboarding.yourWorkspace} slug="workspace" />
 
       <div className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        Things you&apos;ll do here
+        {t.onboarding.thingsYouWillDo}
       </div>
       <div className="flex flex-col gap-3.5">
-        <PerkRow>Assign issues to agents like you would a teammate</PerkRow>
-        <PerkRow>Chat with any agent without creating an issue</PerkRow>
-        <PerkRow>Invite teammates — they see only this workspace</PerkRow>
-        <PerkRow>Switch to other workspaces anytime from the top-left</PerkRow>
+        <PerkRow>{t.onboarding.perkAssignIssues}</PerkRow>
+        <PerkRow>{t.onboarding.perkChat}</PerkRow>
+        <PerkRow>{t.onboarding.perkInvite}</PerkRow>
+        <PerkRow>{t.onboarding.perkSwitch}</PerkRow>
       </div>
     </div>
   );
 }
 
 function ExistingWorkspaceSide({ workspace }: { workspace: Workspace }) {
+  const { t } = useAppI18n();
+
   return (
     <div className="flex flex-col gap-6">
       <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        Your workspace
+        {t.onboarding.yourWorkspace}
       </div>
 
       <WorkspacePreviewCard name={workspace.name} slug={workspace.slug} />
 
       <div className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        What&apos;s next
+        {t.onboarding.whatsNext}
       </div>
       <div className="flex flex-col gap-3.5">
-        <PerkRow>
-          Connect a runtime so your agents have somewhere to run
-        </PerkRow>
-        <PerkRow>Create your first agent matched to your role</PerkRow>
-        <PerkRow>Watch it pick up a starter task and reply</PerkRow>
+        <PerkRow>{t.onboarding.perkConnectRuntime}</PerkRow>
+        <PerkRow>{t.onboarding.perkCreateAgent}</PerkRow>
+        <PerkRow>{t.onboarding.perkWatchAgent}</PerkRow>
       </div>
     </div>
   );
 }
 
-/**
- * Visual preview of the sidebar the user is about to land on — same
- * icons, same labels as the live `<AppSidebar />`, so the onboarding
- * card doubles as "this is what your sidebar will look like." Entity
- * set mirrors the Workspace + Configure groups, lifting Members from
- * Settings to a first-class row because it's the most intuitive way
- * to express "workspaces are multi-player."
- */
 function WorkspacePreviewCard({
   name,
   slug,
@@ -486,6 +429,8 @@ function WorkspacePreviewCard({
   name: string;
   slug: string;
 }) {
+  const { t } = useAppI18n();
+
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
       <div className="flex items-center gap-3 border-b px-4 py-3.5">
@@ -506,44 +451,44 @@ function WorkspacePreviewCard({
       <div className="flex flex-col">
         <EntityRow
           icon={<Inbox className="h-4 w-4" />}
-          label="Inbox"
-          meta="your notifications"
+          label={t.onboarding.entityInbox}
+          meta={t.onboarding.entityInboxMeta}
         />
         <EntityRow
           icon={<ListTodo className="h-4 w-4" />}
-          label="Issues"
-          meta="shared task board"
+          label={t.onboarding.entityIssues}
+          meta={t.onboarding.entityIssuesMeta}
         />
         <EntityRow
           icon={<Bot className="h-4 w-4" />}
-          label="Agents"
-          meta="your AI teammates"
+          label={t.onboarding.entityAgents}
+          meta={t.onboarding.entityAgentsMeta}
         />
         <EntityRow
           icon={<FolderKanban className="h-4 w-4" />}
-          label="Projects"
-          meta="group related issues"
+          label={t.onboarding.entityProjects}
+          meta={t.onboarding.entityProjectsMeta}
         />
         <EntityRow
           icon={<Zap className="h-4 w-4" />}
-          label="Autopilot"
-          meta="scheduled automation"
+          label={t.onboarding.entityAutopilot}
+          meta={t.onboarding.entityAutopilotMeta}
         />
         <EntityRow
           icon={<Monitor className="h-4 w-4" />}
-          label="Runtimes"
-          meta="where agents run"
+          label={t.onboarding.entityRuntimes}
+          meta={t.onboarding.entityRuntimesMeta}
         />
         <EntityRow
           icon={<BookOpenText className="h-4 w-4" />}
-          label="Skills"
-          meta="reusable playbooks"
+          label={t.onboarding.entitySkills}
+          meta={t.onboarding.entitySkillsMeta}
         />
         <EntityRow
           dim
           icon={<MoreHorizontal className="h-4 w-4" />}
-          label="And more"
-          meta="and more"
+          label={t.onboarding.entityMore}
+          meta={t.onboarding.entityMoreMeta}
         />
       </div>
     </div>
@@ -559,7 +504,6 @@ function EntityRow({
   icon: ReactNode;
   label: string;
   meta: string;
-  /** Visually de-emphasized — used for the "and more" row at the bottom. */
   dim?: boolean;
 }) {
   return (

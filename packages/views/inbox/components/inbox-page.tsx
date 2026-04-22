@@ -47,48 +47,84 @@ import {
 import { useIsMobile } from "@multica/ui/hooks/use-mobile";
 import { PageHeader } from "../../layout/page-header";
 import { InboxListItem, timeAgo } from "./inbox-list-item";
-import { typeLabels } from "./inbox-detail-label";
+import { useAppI18n } from "../../i18n";
+
+function getInboxTypeLabel(
+  itemType: InboxItem["type"],
+  item: InboxItem,
+  t: ReturnType<typeof useAppI18n>["t"],
+): string {
+  if (itemType === "new_comment" && item.body) return item.body;
+
+  switch (itemType) {
+    case "issue_assigned":
+      return t.inbox.assigned;
+    case "unassigned":
+      return t.inbox.unassigned;
+    case "assignee_changed":
+      return t.inbox.assigneeChanged;
+    case "status_changed":
+      return t.inbox.statusChanged;
+    case "priority_changed":
+      return t.inbox.priorityChanged;
+    case "due_date_changed":
+      return t.inbox.dueDateChanged;
+    case "new_comment":
+      return t.inbox.newComment;
+    case "mentioned":
+      return t.inbox.mentioned;
+    case "review_requested":
+      return t.inbox.reviewRequested;
+    case "task_completed":
+      return t.inbox.taskCompleted;
+    case "task_failed":
+      return t.inbox.taskFailed;
+    case "agent_blocked":
+      return t.inbox.agentBlocked;
+    case "agent_completed":
+      return t.inbox.agentCompleted;
+    case "reaction_added":
+      return t.inbox.reacted;
+    default:
+      return itemType;
+  }
+}
 
 export function InboxPage() {
+  const { t } = useAppI18n();
   const { searchParams, replace } = useNavigation();
   const urlIssue = searchParams.get("issue") ?? "";
   const wsPaths = useWorkspacePaths();
 
   const [selectedKey, setSelectedKeyState] = useState(() => urlIssue);
 
-  // Sync from URL when searchParams change (e.g. navigation)
   useEffect(() => {
     setSelectedKeyState(urlIssue);
   }, [urlIssue]);
 
   const wsId = useWorkspaceId();
-  const { data: rawItems = [], isLoading: loading } = useQuery(inboxListOptions(wsId));
+  const { data: rawItems = [], isLoading: loading } = useQuery(
+    inboxListOptions(wsId),
+  );
   const items = useMemo(() => deduplicateInboxItems(rawItems), [rawItems]);
 
   const selected = items.find((i) => (i.issue_id ?? i.id) === selectedKey) ?? null;
 
-  // Track the last key we actually resolved against the inbox list. Lets the
-  // fallback effect distinguish "shared-link to a notification not in our
-  // inbox" (never resolved → redirect to the issue page) from "item was in
-  // our inbox and just got removed" (was resolved → stay on /inbox).
   const lastResolvedKeyRef = useRef<string>("");
   useEffect(() => {
     if (selected) lastResolvedKeyRef.current = selectedKey;
   }, [selected, selectedKey]);
 
-  const setSelectedKey = useCallback((key: string) => {
-    setSelectedKeyState(key);
-    const inboxPath = wsPaths.inbox();
-    const url = key ? `${inboxPath}?issue=${key}` : inboxPath;
-    replace(url);
-  }, [replace, wsPaths]);
+  const setSelectedKey = useCallback(
+    (key: string) => {
+      setSelectedKeyState(key);
+      const inboxPath = wsPaths.inbox();
+      const url = key ? `${inboxPath}?issue=${key}` : inboxPath;
+      replace(url);
+    },
+    [replace, wsPaths],
+  );
 
-  // Shared inbox links (?issue=<id>) may point to notifications not in this
-  // user's inbox (archived, or never received). Fall back to the issue page
-  // so the URL still resolves to something meaningful. But if the key was
-  // previously resolvable (e.g. the issue was just deleted in another tab
-  // and `onInboxIssueDeleted` pruned the cache), the issue detail would 404
-  // too — clear the selection and stay on /inbox instead.
   useEffect(() => {
     if (loading) return;
     if (!selectedKey) return;
@@ -114,35 +150,35 @@ export function InboxPage() {
   const archiveAllReadMutation = useArchiveAllReadInbox();
   const archiveCompletedMutation = useArchiveCompletedInbox();
 
-  // Click-to-read: select + auto-mark-read
   const handleSelect = (item: InboxItem) => {
     setSelectedKey(item.issue_id ?? item.id);
     if (!item.read) {
       markReadMutation.mutate(item.id, {
-        onError: () => toast.error("Failed to mark as read"),
+        onError: () => toast.error(t.inbox.markReadFailed),
       });
     }
   };
 
   const handleArchive = (id: string) => {
     const archived = items.find((i) => i.id === id);
-    if (archived && (archived.issue_id ?? archived.id) === selectedKey) setSelectedKey("");
+    if (archived && (archived.issue_id ?? archived.id) === selectedKey) {
+      setSelectedKey("");
+    }
     archiveMutation.mutate(id, {
-      onError: () => toast.error("Failed to archive"),
+      onError: () => toast.error(t.inbox.archiveFailed),
     });
   };
 
-  // Batch operations
   const handleMarkAllRead = () => {
     markAllReadMutation.mutate(undefined, {
-      onError: () => toast.error("Failed to mark all as read"),
+      onError: () => toast.error(t.inbox.markAllReadFailed),
     });
   };
 
   const handleArchiveAll = () => {
     setSelectedKey("");
     archiveAllMutation.mutate(undefined, {
-      onError: () => toast.error("Failed to archive all"),
+      onError: () => toast.error(t.inbox.archiveAllFailed),
     });
   };
 
@@ -150,27 +186,23 @@ export function InboxPage() {
     const readKeys = items.filter((i) => i.read).map((i) => i.issue_id ?? i.id);
     if (readKeys.includes(selectedKey)) setSelectedKey("");
     archiveAllReadMutation.mutate(undefined, {
-      onError: () => toast.error("Failed to archive read items"),
+      onError: () => toast.error(t.inbox.archiveReadFailed),
     });
   };
 
   const handleArchiveCompleted = () => {
     setSelectedKey("");
     archiveCompletedMutation.mutate(undefined, {
-      onError: () => toast.error("Failed to archive completed"),
+      onError: () => toast.error(t.inbox.archiveCompletedFailed),
     });
   };
-
-  // -- Shared sub-components --------------------------------------------------
 
   const listHeader = (
     <PageHeader className="justify-between">
       <div className="flex items-center gap-2">
-        <h1 className="text-sm font-semibold">Inbox</h1>
+        <h1 className="text-sm font-semibold">{t.inbox.title}</h1>
         {unreadCount > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {unreadCount}
-          </span>
+          <span className="text-xs text-muted-foreground">{unreadCount}</span>
         )}
       </div>
       <DropdownMenu>
@@ -188,50 +220,47 @@ export function InboxPage() {
         <DropdownMenuContent align="end" className="w-auto">
           <DropdownMenuItem onClick={handleMarkAllRead}>
             <CheckCheck className="h-4 w-4" />
-            Mark all as read
+            {t.inbox.markAllAsRead}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleArchiveAll}>
             <Archive className="h-4 w-4" />
-            Archive all
+            {t.inbox.archiveAll}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleArchiveAllRead}>
             <BookCheck className="h-4 w-4" />
-            Archive all read
+            {t.inbox.archiveAllRead}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleArchiveCompleted}>
             <ListChecks className="h-4 w-4" />
-            Archive completed
+            {t.inbox.archiveCompleted}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </PageHeader>
   );
 
-  const listBody = items.length === 0 ? (
-    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-      <Inbox className="mb-3 h-8 w-8 text-muted-foreground/50" />
-      <p className="text-sm">No notifications</p>
-    </div>
-  ) : (
-    <div>
-      {items.map((item) => (
-        <InboxListItem
-          key={item.id}
-          item={item}
-          isSelected={(item.issue_id ?? item.id) === selectedKey}
-          onClick={() => handleSelect(item)}
-          onArchive={() => handleArchive(item.id)}
-        />
-      ))}
-    </div>
-  );
+  const listBody =
+    items.length === 0 ? (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+        <Inbox className="mb-3 h-8 w-8 text-muted-foreground/50" />
+        <p className="text-sm">{t.inbox.noNotifications}</p>
+      </div>
+    ) : (
+      <div>
+        {items.map((item) => (
+          <InboxListItem
+            key={item.id}
+            item={item}
+            isSelected={(item.issue_id ?? item.id) === selectedKey}
+            onClick={() => handleSelect(item)}
+            onArchive={() => handleArchive(item.id)}
+          />
+        ))}
+      </div>
+    );
 
   const detailContent = selected?.issue_id ? (
-    // Key by issue_id (not inbox-item id): a new comment/reaction generates a
-    // new inbox notification for the same issue, and the dedup helper picks the
-    // newest one — keying on its id would remount IssueDetail on every event,
-    // wiping the comment composer draft and resetting scroll position.
     <IssueDetail
       key={selected.issue_id}
       issueId={selected.issue_id}
@@ -239,10 +268,6 @@ export function InboxPage() {
       layoutId="multica_inbox_issue_detail_layout"
       highlightCommentId={selected.details?.comment_id ?? undefined}
       onDelete={() => {
-        // Issue deletion CASCADE-deletes the inbox item server-side, and the
-        // issue:deleted WS event prunes it from the inbox cache. Just clear
-        // the selection — calling archive here would 404 on a row that no
-        // longer exists.
         setSelectedKey("");
       }}
     />
@@ -250,7 +275,7 @@ export function InboxPage() {
     <div className="p-6">
       <h2 className="text-lg font-semibold">{selected.title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        {typeLabels[selected.type]} · {timeAgo(selected.created_at)}
+        {getInboxTypeLabel(selected.type, selected, t)} · {timeAgo(selected.created_at)}
       </p>
       {selected.body && (
         <div className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
@@ -264,22 +289,20 @@ export function InboxPage() {
           onClick={() => handleArchive(selected.id)}
         >
           <Archive className="mr-1.5 h-3.5 w-3.5" />
-          Archive
+          {t.inbox.archiveAction}
         </Button>
       </div>
     </div>
   ) : null;
 
-  // -- Mobile layout: list / detail toggle -----------------------------------
-
   if (isMobile) {
     if (loading) {
       return (
-        <div className="flex flex-1 flex-col min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex h-12 shrink-0 items-center border-b px-4">
             <Skeleton className="h-5 w-16" />
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 p-2">
+          <div className="flex-1 min-h-0 space-y-1 overflow-y-auto p-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-2.5">
                 <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
@@ -294,10 +317,9 @@ export function InboxPage() {
       );
     }
 
-    // Mobile: show detail full-screen when an item is selected
     if (selected) {
       return (
-        <div className="flex flex-1 flex-col min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex h-12 shrink-0 items-center border-b px-2">
             <Button
               variant="ghost"
@@ -306,38 +328,42 @@ export function InboxPage() {
               className="gap-1.5 text-muted-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
-              Inbox
+              {t.inbox.backToInbox}
             </Button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {detailContent}
-          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto">{detailContent}</div>
         </div>
       );
     }
 
-    // Mobile: full-screen list
     return (
-      <div className="flex flex-1 flex-col min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col">
         {listHeader}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {listBody}
-        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto">{listBody}</div>
       </div>
     );
   }
 
-  // -- Desktop layout: resizable two-panel -----------------------------------
-
   if (loading) {
     return (
-      <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0" defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged}>
-        <ResizablePanel id="list" defaultSize={320} minSize={240} maxSize={480} groupResizeBehavior="preserve-pixel-size">
-          <div className="flex flex-col border-r h-full">
+      <ResizablePanelGroup
+        orientation="horizontal"
+        className="flex-1 min-h-0"
+        defaultLayout={defaultLayout}
+        onLayoutChanged={onLayoutChanged}
+      >
+        <ResizablePanel
+          id="list"
+          defaultSize={320}
+          minSize={240}
+          maxSize={480}
+          groupResizeBehavior="preserve-pixel-size"
+        >
+          <div className="flex h-full flex-col border-r">
             <div className="flex h-12 shrink-0 items-center border-b px-4">
               <Skeleton className="h-5 w-16" />
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 p-2">
+            <div className="flex-1 min-h-0 space-y-1 overflow-y-auto p-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-2.5">
                   <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
@@ -362,29 +388,36 @@ export function InboxPage() {
   }
 
   return (
-    <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0" defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged}>
-      <ResizablePanel id="list" defaultSize={320} minSize={240} maxSize={480} groupResizeBehavior="preserve-pixel-size">
-      <div className="flex flex-col border-r h-full">
-        {listHeader}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {listBody}
+    <ResizablePanelGroup
+      orientation="horizontal"
+      className="flex-1 min-h-0"
+      defaultLayout={defaultLayout}
+      onLayoutChanged={onLayoutChanged}
+    >
+      <ResizablePanel
+        id="list"
+        defaultSize={320}
+        minSize={240}
+        maxSize={480}
+        groupResizeBehavior="preserve-pixel-size"
+      >
+        <div className="flex h-full flex-col border-r">
+          {listHeader}
+          <div className="flex-1 min-h-0 overflow-y-auto">{listBody}</div>
         </div>
-      </div>
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel id="detail" minSize="40%">
-      <div className="flex flex-col min-h-0 h-full">
-        {detailContent ?? (
-          <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-            <Inbox className="mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="text-sm">
-              {items.length === 0
-                ? "Your inbox is empty"
-                : "Select a notification to view details"}
-            </p>
-          </div>
-        )}
-      </div>
+        <div className="flex h-full min-h-0 flex-col">
+          {detailContent ?? (
+            <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+              <Inbox className="mb-3 h-10 w-10 text-muted-foreground/30" />
+              <p className="text-sm">
+                {items.length === 0 ? t.inbox.emptyTitle : t.inbox.selectToView}
+              </p>
+            </div>
+          )}
+        </div>
       </ResizablePanel>
     </ResizablePanelGroup>
   );

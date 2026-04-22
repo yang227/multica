@@ -38,21 +38,13 @@ import { TasksTab } from "./tabs/tasks-tab";
 import { SettingsTab } from "./tabs/settings-tab";
 import { EnvTab } from "./tabs/env-tab";
 import { CustomArgsTab } from "./tabs/custom-args-tab";
+import { useAppI18n } from "../../i18n";
 
 function getRuntimeDevice(agent: Agent, runtimes: RuntimeDevice[]): RuntimeDevice | undefined {
   return runtimes.find((runtime) => runtime.id === agent.runtime_id);
 }
 
 type DetailTab = "instructions" | "skills" | "tasks" | "env" | "custom_args" | "settings";
-
-const detailTabs: { id: DetailTab; label: string; icon: typeof FileText }[] = [
-  { id: "instructions", label: "Instructions", icon: FileText },
-  { id: "skills", label: "Skills", icon: BookOpenText },
-  { id: "tasks", label: "Tasks", icon: ListTodo },
-  { id: "env", label: "Environment", icon: KeyRound },
-  { id: "custom_args", label: "Custom Args", icon: Terminal },
-  { id: "settings", label: "Settings", icon: Settings },
-];
 
 export function AgentDetail({
   agent,
@@ -71,11 +63,20 @@ export function AgentDetail({
   onArchive: (id: string) => Promise<void>;
   onRestore: (id: string) => Promise<void>;
 }) {
+  const { t } = useAppI18n();
   const st = statusConfig[agent.status];
   const runtimeDevice = getRuntimeDevice(agent, runtimes);
   const [activeTab, setActiveTab] = useState<DetailTab>("instructions");
   const [confirmArchive, setConfirmArchive] = useState(false);
   const isArchived = !!agent.archived_at;
+  const detailTabs: { id: DetailTab; label: string; icon: typeof FileText }[] = [
+    { id: "instructions", label: t.agents.instructionsTab, icon: FileText },
+    { id: "skills", label: t.agents.skillsTab, icon: BookOpenText },
+    { id: "tasks", label: t.agents.tasksTab, icon: ListTodo },
+    { id: "env", label: t.agents.environmentTab, icon: KeyRound },
+    { id: "custom_args", label: t.agents.customArgsTab, icon: Terminal },
+    { id: "settings", label: t.agents.settingsTab, icon: Settings },
+  ];
 
   return (
     <div className="flex h-full flex-col">
@@ -83,9 +84,9 @@ export function AgentDetail({
       {isArchived && (
         <div className="flex items-center gap-2 bg-muted/50 px-4 py-2 text-xs text-muted-foreground border-b">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1">This agent is archived. It cannot be assigned or mentioned.</span>
+          <span className="flex-1">{t.agents.archivedBanner}</span>
           <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => onRestore(agent.id)}>
-            Restore
+            {t.common.restore}
           </Button>
         </div>
       )}
@@ -98,7 +99,7 @@ export function AgentDetail({
             <h2 className={`text-sm font-semibold truncate ${isArchived ? "text-muted-foreground" : ""}`}>{agent.name}</h2>
             {isArchived ? (
               <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                Archived
+                {t.agents.archivedLabel}
               </span>
             ) : (
               <span className={`flex items-center gap-1.5 text-xs ${st.color}`}>
@@ -112,7 +113,7 @@ export function AgentDetail({
               ) : (
                 <Monitor className="h-3 w-3" />
               )}
-              {runtimeDevice?.name ?? (agent.runtime_mode === "cloud" ? "Cloud" : "Local")}
+              {runtimeDevice?.name ?? (agent.runtime_mode === "cloud" ? t.agents.cloud : t.common.local)}
             </span>
           </div>
         </div>
@@ -131,7 +132,7 @@ export function AgentDetail({
                 onClick={() => setConfirmArchive(true)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Archive Agent
+                {t.agents.archiveAgent}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -202,15 +203,15 @@ export function AgentDetail({
                 <AlertCircle className="h-5 w-5 text-destructive" />
               </div>
               <DialogHeader className="flex-1 gap-1">
-                <DialogTitle className="text-sm font-semibold">Archive agent?</DialogTitle>
+                <DialogTitle className="text-sm font-semibold">{t.agents.archiveAgentTitle}</DialogTitle>
                 <DialogDescription className="text-xs">
-                  &quot;{agent.name}&quot; will be archived. It won&apos;t be assignable or mentionable, but all history is preserved. You can restore it later.
+                  {t.agents.archiveAgentDescription(agent.name)}
                 </DialogDescription>
               </DialogHeader>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setConfirmArchive(false)}>
-                Cancel
+                {t.common.cancel}
               </Button>
               <Button
                 variant="destructive"
@@ -219,7 +220,7 @@ export function AgentDetail({
                   onArchive(agent.id);
                 }}
               >
-                Archive
+                {t.common.archive}
               </Button>
             </DialogFooter>
           </DialogContent>

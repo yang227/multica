@@ -23,6 +23,7 @@ import { StepRuntimeConnect } from "./steps/step-runtime-connect";
 import { StepPlatformFork } from "./steps/step-platform-fork";
 import { StepAgent } from "./steps/step-agent";
 import { StepFirstIssue } from "./steps/step-first-issue";
+import { useAppI18n } from "../i18n";
 
 const EMPTY_QUESTIONNAIRE: QuestionnaireAnswers = {
   team_size: null,
@@ -54,6 +55,7 @@ export function OnboardingFlow({
   onComplete: (workspace?: Workspace) => void;
   runtimeInstructions?: React.ReactNode;
 }) {
+  const { t } = useAppI18n();
   const user = useAuthStore((s) => s.user);
   if (!user) {
     throw new Error("OnboardingFlow requires an authenticated user");
@@ -100,12 +102,12 @@ export function OnboardingFlow({
       await completeOnboarding();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to finish onboarding",
+        err instanceof Error ? err.message : t.onboarding.finishFailed,
       );
       return;
     }
     onComplete(workspaces[0] ?? undefined);
-  }, [workspaces, onComplete]);
+  }, [workspaces, onComplete, t]);
 
   const handleQuestionnaireSubmit = useCallback(
     async (answers: QuestionnaireAnswers) => {

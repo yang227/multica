@@ -22,8 +22,10 @@ import { IssuesHeader } from "./issues-header";
 import { BoardView } from "./board-view";
 import { ListView } from "./list-view";
 import { BatchActionToolbar } from "./batch-action-toolbar";
+import { useAppI18n } from "../../i18n";
 
 export function IssuesPage() {
+  const { t } = useAppI18n();
   const wsId = useWorkspaceId();
   const { data: allIssues = [], isLoading: loading } = useQuery(issueListOptions(wsId));
 
@@ -90,10 +92,10 @@ export function IssuesPage() {
 
       updateIssueMutation.mutate(
         { id: issueId, ...updates },
-        { onError: () => toast.error("Failed to move issue") },
+        { onError: () => toast.error(t.issues.moveFailed) },
       );
     },
-    [updateIssueMutation],
+    [t.issues.moveFailed, updateIssueMutation],
   );
 
   if (loading) {
@@ -142,10 +144,10 @@ export function IssuesPage() {
       <PageHeader className="gap-1.5">
         <WorkspaceAvatar name={workspace?.name ?? "W"} size="sm" />
         <span className="text-sm text-muted-foreground">
-          {workspace?.name ?? "Workspace"}
+          {workspace?.name ?? t.issues.breadcrumbWorkspace}
         </span>
         <ChevronRight className="h-3 w-3 text-muted-foreground" />
-        <span className="text-sm font-medium">Issues</span>
+        <span className="text-sm font-medium">{t.issues.breadcrumbIssues}</span>
       </PageHeader>
 
       <ViewStoreProvider store={useIssueViewStore}>
@@ -156,8 +158,8 @@ export function IssuesPage() {
         {scopedIssues.length === 0 ? (
           <div className="flex flex-1 min-h-0 flex-col items-center justify-center gap-2 text-muted-foreground">
             <ListTodo className="h-10 w-10 text-muted-foreground/40" />
-            <p className="text-sm">No issues yet</p>
-            <p className="text-xs">Create an issue to get started.</p>
+            <p className="text-sm">{t.issues.emptyTitle}</p>
+            <p className="text-xs">{t.issues.emptyDescription}</p>
           </div>
         ) : (
           <div className="flex flex-col flex-1 min-h-0">
